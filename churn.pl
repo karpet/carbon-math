@@ -4,6 +4,12 @@ use warnings;
 use Text::CSV_XS;
 use Data::Dump qw( dump );
 
+#
+# usage: 
+#        perl churn.pl file.csv
+#
+#
+
 my @X = qw(0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0);
 my @Y = qw(1.25 1.2 1.15 1.1 1.05 1 0.95 0.9 0.85 0.8 0.75);
 my @Z = qw(12 13 14 15 16 17 18 20 22 25 27 30);
