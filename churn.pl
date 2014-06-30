@@ -64,8 +64,7 @@ my %C = (
     G => 0.0007576,
     H => 0.375929,
 );
-my $MV      = 0.00000001;
-my $err_sum = 1;
+my $MV = 0.00001;
 
 sub churn {
     my ( $w, $x, $y, $z ) = @_;
@@ -82,16 +81,51 @@ sub churn {
 }
 
 sub churn_loop {
-    my $err_sum = 0;
-    for my $row (@Ws) {
-        $err_sum += churn( map { $row->{$_} } qw( w x y z ) );
+    my ($prev_err_sum) = @_;
+
+    # apply $mv against each value in %C
+    my @errs = ();
+    for my $k ( ( 'A' .. 'H' ) ) {
+        my $err_sum = 0;
+        $C{$k} += $MV;
+        for my $row (@Ws) {
+            $err_sum += churn( map { $row->{$_} } qw( w x y z ) );
+        }
+        if ( $err_sum > $prev_err_sum ) {
+            $C{$k} += -( $MV * 2 );
+            for my $row (@Ws) {
+                $err_sum += churn( map { $row->{$_} } qw( w x y z ) );
+            }
+
+            # last sanity check
+            if ( $err_sum > $prev_err_sum ) {
+                $C{$k} += $MV;
+            }
+        }
+        if ( $err_sum < $prev_err_sum ) {
+            $prev_err_sum = $err_sum;
+        }
+        push @errs, $err_sum;
     }
-    return $err_sum;
+
+    #dump \@errs;
+    return $prev_err_sum;
 }
 
+my $err_sum = churn_loop(1);
 printf( "err_sum=%.8f\n", $err_sum );
 printf( "%s\n",           dump( \%C ) );
 
+my $loops = 0;
 while ( $err_sum > 0.01 ) {
-    $err_sum = churn_loop();
+    my $before = $err_sum;
+    $err_sum = churn_loop($err_sum);
+    if ( $before < $err_sum ) {
+        $err_sum = churn_loop($err_sum);
+    }
+    if ( $loops++ % 100 == 0 ) {
+        printf( "err_sum=%.8f\n", $err_sum );
+        printf( "%s\n",           dump( \%C ) );
+    }
+    #printf("loops = %d\n", $loops);
 }
