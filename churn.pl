@@ -28,24 +28,33 @@ close $fh;
 # (0.392/M-0.2253)LN(x)+(0.001563M-0.07114)y^2+(0.0064-0.003905M)y-0.000727M+0.3773
 
 my %C = (
-    A => 0.44868,
-    B => 0.228363,
-    C => 0.0016869,
-    D => 0.070613,
-    E => 0.006076,
-    F => 0.0039767,
-    G => 0.0007576,
-    H => 0.375929,
+    A => 0.645701,
+    B => -0.2397,
+    C => 0.001689,
+    D => -0.070588,
+    E => -0.003976,
+    F => -0.006069,
+    G => -0.0007576,
+    H => 0.3759,
 );
-my $MV = 0.00001;
+my %MV = (
+    A => 0.001,
+    B => 0.001,
+    C => 0.001,
+    D => 0.001,
+    E => 0.001,
+    F => 0.001,
+    G => 0.001,
+    H => 0.001,
+);
 
 sub churn {
-    my ( $w, $x, $y, $z ) = @_;
+    my ( $x, $y, $z, $w ) = @_;
     my $eq
-        = ( $C{A} / $z - $C{B} ) * log($x)
-        + ( $C{C} * $z - $C{D} ) * $y * $y
-        + ( -$C{E} - $C{F} * $z ) * $y
-        - $C{G} * $z
+        = ( $C{A} / $z + $C{B} ) * log($x)
+        + ( $C{C} * $z + $C{D} ) * $y * $y
+        + ( $C{E} * $z + $C{F} ) * $y
+        + $C{G} * $z
         + $C{H};
     my $err = ( $w - $eq )**2;
 
@@ -60,19 +69,23 @@ sub churn_loop {
     my @errs = ();
     for my $k ( ( 'A' .. 'H' ) ) {
         my $err_sum = 0;
-        $C{$k} += $MV;
+        $C{$k} += ( $MV{$k} );
         for my $row (@Ws) {
-            $err_sum += churn( map { $row->{$_} } qw( w x y z ) );
+            $err_sum += churn( map { $row->{$_} } qw( x y z w ) );
         }
         if ( $err_sum > $prev_err_sum ) {
-            $C{$k} += -( $MV * 2 );
+            my $err_sum = 0;
+            $C{$k} += -( $MV{$k} * 2 );
             for my $row (@Ws) {
-                $err_sum += churn( map { $row->{$_} } qw( w x y z ) );
+                $err_sum += churn( map { $row->{$_} } qw( x y z w ) );
             }
 
             # last sanity check
             if ( $err_sum > $prev_err_sum ) {
-                $C{$k} += $MV;
+                $C{$k} += ( $MV{$k} );
+                if ( $MV{$k} > 0.00000001 ) {
+                    $MV{$k} = 0.95 * $MV{$k};
+                }
             }
         }
         if ( $err_sum < $prev_err_sum ) {
@@ -97,9 +110,13 @@ while ( $err_sum > 0.01 ) {
         $err_sum = churn_loop($err_sum);
     }
     if ( $loops++ % 100 == 0 ) {
-        printf( "err_sum=%.8f\n", $err_sum );
-        printf( "%s\n",           dump( \%C ) );
+        printf( "loops = %d\n",       $loops );
+        printf( "  err_sum = %.8f\n", $err_sum );
+        printf( "%s\n",               dump( \%C ) );
     }
-
-    #printf("loops = %d\n", $loops);
+    if ( $loops++ % 100 == 0 ) {
+        for my $k ( ( 'A' .. 'H' ) ) {
+            $MV{$k} = 20 * $MV{$k};
+        }
+    }
 }
